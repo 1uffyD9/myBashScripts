@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-COMMAND_TO_FILTER="ls"
+COMMAND_TO_FILTER="ls"	# edit the variable to the name of the process you want to monitor
 touch .session_topMonitor
 declare -i SESSION_NO=0
 
