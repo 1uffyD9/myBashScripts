@@ -15,7 +15,7 @@ fi
 echo "SESSION: $SESSION_NO"
 		
 ORDER_BY="CPU"			# Options: MEM
-PERIOD="3"
+PERIOD="3"			# Edit the time delay you want to add
 
 COMMAND1="top -b -n 1 -o %$ORDER_BY"
 declare -i REC_COUNT=0
