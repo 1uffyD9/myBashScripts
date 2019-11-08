@@ -1,6 +1,9 @@
 #!/bin/bash 
 
-COMMAND_TO_FILTER="ls"	# edit the variable to the name of the process you want to monitor
+COMMAND_TO_FILTER="java"	# edit the variable to the name of the process you want to monitor
+ORDER_BY="CPU"			# Options: MEM
+PERIOD="15"			# Time delay
+
 touch .session_topMonitor
 declare -i SESSION_NO=0
 
@@ -14,9 +17,6 @@ fi
 
 echo "SESSION: $SESSION_NO"
 		
-ORDER_BY="CPU"			# Options: MEM
-PERIOD="3"			# Edit the time delay you want to add
-
 COMMAND1="top -b -n 1 -o %$ORDER_BY"
 declare -i REC_COUNT=0
 
