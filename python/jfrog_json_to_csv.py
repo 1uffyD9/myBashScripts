@@ -20,7 +20,33 @@ def main():
     json_file = Path(input("[>] Path to JSON file : ")).expanduser()
 
     if json_file.is_file():
-        json_content = pd.read_json(json.dumps(get_json_file(json_file)))
+        # normalize the nested JSON objects 
+        # https://pythonmana.com/2021/08/20210809143233849o.html
+        json_content = pd.json_normalize(get_json_file(json_file), record_path=['cves'], 
+            meta=[
+                    'severity', 'component_id', 'summary', 'description', 'type',
+                    ['versions', 'id'],
+                    ['versions', 'vulnerable_versions'],
+                    ['versions', 'fixed_versions'],
+                    'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
+                    'cvss_v2_base', 'cvss_v3_score',
+                    'cvss_v3_base'
+                ], errors="ignore").\
+        rename(index=str, 
+            columns={
+                    'versions.id': 'package_id',
+                    'versions.vulnerable_versions': 'vulnerable_versions',
+                    'versions.fixed_versions': 'fixed_versions'
+                })
+            
+        # re-arranging the columns
+        json_content = json_content.loc[:, [
+                        'cve', 'cwe', 'severity', 'component_id', 'summary', 'description', 'type',
+                        'package_id', 'vulnerable_versions', 'fixed_versions', 'cvss_v2', 'cvss_v3',
+                        'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
+                        'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
+                    ]]
+        
     else:
         sys.exit("[!] JSON script was not found! Please check the path and try again.")
 
