@@ -1,2 +1,3 @@
 # myBashScripts
-Scripts I needed for my Work
+
+General scripts prepared for different purposes.
