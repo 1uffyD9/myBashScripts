@@ -46,6 +46,12 @@ def main():
                         'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
                         'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
                     ]]
+
+        # adding cols to add analysis comments
+        json_content = json_content.reindex(columns = json_content.columns.tolist() + [
+            "[note] WSO2 Resolution_1", "[note] Use Case_1", 
+            "[note] Vulnerability Influence_1", "[note] Resolution_1"
+            ])
         
     else:
         sys.exit("[!] JSON script was not found! Please check the path and try again.")
