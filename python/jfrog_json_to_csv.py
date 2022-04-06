@@ -16,16 +16,15 @@ class JFrogParser:
     
     def group_by_component(self, content: json) -> pd.DataFrame:
 
-        pd_content = pd.json_normalize(content, record_path=['cves'], 
+        pd_content = pd.json_normalize(content, record_path=['cves'],
             meta=[
-                    'severity', 'component_id', 'summary', 'description', 'type',
-                    ['versions', 'id'],
-                    ['versions', 'vulnerable_versions'],
-                    ['versions', 'fixed_versions'],
-                    'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
-                    'cvss_v2_base', 'cvss_v3_score',
-                    'cvss_v3_base'
-                ], errors="ignore").\
+                'severity', 'component_id', 'summary', 'description', 'type',
+                ['versions', 'id'], ['versions', 'vulnerable_versions'],
+                ['versions', 'fixed_versions'],
+                'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
+                'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
+            ],
+            errors="ignore").\
             rename(index=str, 
                 columns={
                     'versions.id': 'package_id',
@@ -35,11 +34,11 @@ class JFrogParser:
                 
         # re-arranging the columns
         pd_content = pd_content.loc[:, [
-                    'cve', 'cwe', 'severity', 'component_id', 'summary', 'description', 'type',
-                    'package_id', 'vulnerable_versions', 'fixed_versions', 'cvss_v2', 'cvss_v3',
-                    'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
-                    'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
-                ]]
+            'cve', 'cwe', 'severity', 'component_id', 'summary', 'description', 'type',
+            'package_id', 'vulnerable_versions', 'fixed_versions', 'cvss_v2', 'cvss_v3',
+            'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
+            'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
+        ]]
 
         # adding cols to add analysis comments
         pd_content = pd_content.reindex(columns = pd_content.columns.tolist() + [
@@ -47,7 +46,9 @@ class JFrogParser:
             "[note] Vulnerability Influence_1", "[note] Resolution_1"
         ])
         
-        return pd_content
+        # print(pd_content.columns)
+        # remove special characters and return
+        return pd_content.replace('(\\r|\\n)','',regex=True)
 
 
     def group_by_cves_components(self, content: json) -> pd.DataFrame:
@@ -96,7 +97,8 @@ class JFrogParser:
         # adding target image name to the column
         pd_content = pd_content.assign(target_image_name=image_name)
 
-        return pd_content
+        # remove special characters and return
+        return pd_content.replace('(\\r|\\n)','',regex=True)
 
 
     def main(self) -> None:
@@ -123,14 +125,14 @@ class JFrogParser:
 
         if user_choice in yes:
             dst_file = "{}/{}.csv".format(os.getcwd(), json_file.stem)
-            json_content.to_csv (r'{}'.format(dst_file), index = None)
+            json_content.to_csv(r'{}'.format(dst_file), index = None)
             print("[!] File written to : {}".format(dst_file))
         else:
             csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
 
             if csv_dst_dir.is_dir():
                 dst_file = "{}/{}.csv".format(csv_dst_dir, json_file.stem)
-                json_content.to_csv (r'{}'.format(dst_file), index = None)
+                json_content.to_csv(r'{}'.format(dst_file), index = None)
                 print("[!] File written to : {}".format(dst_file))
             else:
                 sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
