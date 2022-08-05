@@ -1,5 +1,11 @@
+# system spefic files / folders
+__MACOSX/*
+
+# common files
 *.html
 *.env
 *.json
 *.txt
 *.csv
+*.zip
+
