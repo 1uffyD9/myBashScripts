@@ -14,7 +14,7 @@ class JFrogParser:
             sys.exit("[!] Invalid JSON format in file : {}".format(filename))
 
     
-    def group_by_component(self, content: json) -> pd.DataFrame:
+    def group_by_component_f1(self, content: json) -> pd.DataFrame:
 
         pd_content = pd.json_normalize(content, record_path=['cves'],
             meta=[
@@ -27,7 +27,7 @@ class JFrogParser:
             errors="ignore").\
             rename(index=str, 
                 columns={
-                    'versions.id': 'package_id',
+                    'versions.id': 'component_name',
                     'versions.vulnerable_versions': 'vulnerable_versions',
                     'versions.fixed_versions': 'fixed_versions'
                 })
@@ -35,7 +35,7 @@ class JFrogParser:
         # re-arranging the columns
         pd_content = pd_content.loc[:, [
             'cve', 'cwe', 'severity', 'component_id', 'summary', 'description', 'type',
-            'package_id', 'vulnerable_versions', 'fixed_versions', 'cvss_v2', 'cvss_v3',
+            'component_name', 'vulnerable_versions', 'fixed_versions', 'cvss_v2', 'cvss_v3',
             'package_type', 'provider', 'created', 'vulnerability_id', 'cvss_v2_score', 
             'cvss_v2_base', 'cvss_v3_score', 'cvss_v3_base'
         ]]
@@ -76,16 +76,16 @@ class JFrogParser:
                 'references', 'type', 'package_type', 'provider', '_id', 'ignored'
             ], errors="ignore").\
             rename(index=str, columns={
-                '_id': 'xray_id',
-                'id':'package_id'
+                '_id': 'vuln_id',
+                'id':'component_name'
                 })
 
         # re-arranging the columns
         pd_content = pd_content.loc[:, [
                 'cve', 'cwe', 'severity', 'summary', 'description', 'references',
-                'package_id', 'vulnerable_versions', 'fixed_versions',
+                'component_name', 'vulnerable_versions', 'fixed_versions',
                 'type', 'package_type', 'cvss_v2', 'cvss_v3', 'provider',
-                'xray_id', 'ignored'
+                'vuln_id', 'ignored'
             ]]
 
         # adding cols to add analysis comments
@@ -101,12 +101,48 @@ class JFrogParser:
         return pd_content.replace('(\\r|\\n)','',regex=True)
 
 
+    def group_by_component_f2(self, content: json) -> pd.DataFrame:
+        
+        # print(content[0].keys())
+        # rename_keys = { key : key.lower().replace(' ', '_') for key in content[0].keys()}
+        pd_content = pd.json_normalize(content).rename(index=str, 
+            columns={
+                'CVES' : 'cve',
+                'SEVERITY' : 'severity',
+                "ISSUE ID" : 'vuln_id',
+                'SUMMARY' : 'summary',
+                "IMPACTED DEPENDENCY" : 'component_name',
+                'VERSION' : 'version',
+                "FIXED VERSIONS" : 'fixed_versions',
+                'TYPE' : 'type',
+                "DIRECT DEPENDENCIES" : 'direct_dependencies',
+                "CVSS V2" : 'cvss_v2',
+                "CVSS V3" : 'cvss_v3'
+            })
+            
+        # # re-arranging the columns
+        pd_content = pd_content.loc[:, [
+                'cve', 'severity', 'vuln_id', 'summary',
+                'component_name', 'version', 'fixed_versions',
+                'type', 'direct_dependencies', 'cvss_v2', 'cvss_v3'
+            ]]
+
+        # adding cols to add analysis comments
+        pd_content = pd_content.reindex(columns = pd_content.columns.tolist() + [
+            'static_finding', 'dynamic_finding', "[note] WSO2 Resolution_1", "[note] Use Case_1", 
+            "[note] Vulnerability Influence_1", "[note] Resolution_1"
+        ])
+
+        # remove special characters and return
+        return pd_content.replace('(\\r|\\n)','',regex=True)
+
+
     def main(self) -> None:
         json_content = ''
         dst_file = ''
         yes = {'yes','y', 'ye', ''}
 
-        json_file = Path(input("[>] Path to JSON file : ")).expanduser()
+        json_file = Path(input("[>] Path to JSON file : ").strip()).expanduser()
 
         if json_file.is_file():
             json_content = self.get_json_file(json_file)
@@ -116,7 +152,13 @@ class JFrogParser:
             if 'scanReport' in json_content:
                 json_content = self.group_by_cves_components(json_content)
             else:
-                json_content = self.group_by_component(json_content)
+                # list contains vulnerabilities in the format of a dict
+                if 'component_id' in json_content[0].keys():
+                    json_content = self.group_by_component_f1(json_content)
+                elif "IMPACTED DEPENDENCY" in json_content[0].keys():
+                    json_content = self.group_by_component_f2(json_content)
+                else:
+                    print("[!] Unrecognized format! Exiting..")
 
         else:
             sys.exit("[!] JSON script was not found! Please check the path and try again.")
