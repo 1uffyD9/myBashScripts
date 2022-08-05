@@ -8,6 +8,7 @@ import csv
 import sys
 import re
 import io
+import os
 
 # filename prefix ; note the order of the files
 source_files_prefix = ['security', 'source']
