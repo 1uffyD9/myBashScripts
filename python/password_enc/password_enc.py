@@ -26,7 +26,7 @@ class CryptKeys:
         if self.pub_key_path.is_file():
             pub_key = RSA.import_key(open(self.pub_key_path).read())
         else:
-            sys.exit("[!] Key was not found! Please check the path and try again.")
+            sys.exit("[!] [Error] Public key was not found! Please check the path and try again.")
             
         # generate a session key
         session_key = get_random_bytes(16)
@@ -56,10 +56,10 @@ class CryptKeys:
                 private_key = RSA.import_key(open(self.prpriv_key_path).read())
 
             except ValueError:
-                private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("Enter passphrase : "))
+                private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("[>] Enter passphrase : "))
 
         else:
-            sys.exit("[!] Key was not found! Please check the path and try again.")
+            sys.exit("[!] [Error] Private key was not found! Please check the path and try again.")
 
         
         enc_session_key, nonce, tag, ciphertext = [binascii.unhexlify(x) for x in cypher_text.split('.')]
