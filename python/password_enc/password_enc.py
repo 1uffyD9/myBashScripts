@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
@@ -9,13 +11,18 @@ import sys
 
 class CryptKeys:
 
-    def encrypt_text(self, key_file: str, clear_text: str) -> str:
+    def __init__(self, pub_key: str, priv_key: str) -> None:
+        self.pub_key_path = Path(pub_key).expanduser()
+        self.prpriv_key_path = Path(priv_key).expanduser()
+
+
+    def encrypt_text(self, clear_text: str) -> str:
 
         pub_key = ""
 
         # get the pub key
-        if Path(key_file).expanduser().is_file():
-            pub_key = RSA.import_key(open(key_file).read())
+        if self.pub_key_path.is_file():
+            pub_key = RSA.import_key(open(self.pub_key_path).read())
         else:
             sys.exit("[!] Key was not found! Please check the path and try again.")
             
@@ -33,17 +40,17 @@ class CryptKeys:
         return '.'.join([binascii.hexlify(x).decode("utf-8") for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)])
 
 
-    def decrypt_cypher(self, key_file:str, cypher_text: str) -> str:
+    def decrypt_cypher(self, cypher_text: str) -> str:
 
         private_key =""
 
         # get the pub key
-        if Path(key_file).expanduser().is_file():
+        if self.prpriv_key_path.is_file():
             try:
-                private_key = RSA.import_key(open(key_file).read())
+                private_key = RSA.import_key(open(self.prpriv_key_path).read())
 
             except ValueError:
-                private_key = RSA.import_key(open(key_file).read(), getpass.getpass("Enter passphrase : "))
+                private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("Enter passphrase : "))
 
         else:
             sys.exit("[!] Key was not found! Please check the path and try again.")
@@ -62,13 +69,18 @@ class CryptKeys:
         return data.decode("utf-8")
 
 
+# ref : https://pycryptodome.readthedocs.io/en/latest/src/examples.html
 
-cp = CryptKeys()
-pub_key_path = 'testkey.pub'
-priv_key_path = 'testkey.pem'
+data = "Hi, This is 1uffyD9".encode("utf-8")
+pub_key_path = '~/.ssh/id_rsa1.pub'
+priv_key_path = '~/.ssh/id_rsa1'
 
-data = "I met aliens in UFO. Here is the map.".encode("utf-8")
-cypher_t = cp.encrypt_text(pub_key_path, data)
-plain_t = cp.decrypt_cypher(priv_key_path, cypher_t)
+cp = CryptKeys(pub_key_path, priv_key_path)
 
-print(plain_t)
+# Encryption
+cypher_t = cp.encrypt_text(data)
+print(f"[!] Cypher text : {cypher_t}")
+
+# Decryption
+plain_t = cp.decrypt_cypher(cypher_t)
+print(f"[*] Plain text : {plain_t}")
