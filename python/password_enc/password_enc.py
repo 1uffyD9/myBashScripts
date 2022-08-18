@@ -18,7 +18,9 @@ class CryptKeys:
 
     def encrypt_text(self, clear_text: str) -> str:
 
-        pub_key = ""
+        pub_key = ''
+        ciphertext = ''
+        tag = ''
 
         # get the pub key
         if self.pub_key_path.is_file():
@@ -35,7 +37,11 @@ class CryptKeys:
 
         # Encrypt the data with the AES session key
         cipher_aes = AES.new(session_key, AES.MODE_EAX)
-        ciphertext, tag = cipher_aes.encrypt_and_digest(clear_text)
+
+        try:
+            ciphertext, tag = cipher_aes.encrypt_and_digest(clear_text)
+        except TypeError:
+            ciphertext, tag = cipher_aes.encrypt_and_digest(clear_text.encode('utf-8'))
 
         return '.'.join([binascii.hexlify(x).decode("utf-8") for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)])
 
