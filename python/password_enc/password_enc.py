@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.PublicKey import RSA
 from pathlib import Path
 import binascii
 import getpass
@@ -56,7 +56,10 @@ class CryptKeys:
                 private_key = RSA.import_key(open(self.prpriv_key_path).read())
 
             except ValueError:
-                private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("[>] Enter passphrase : "))
+                try:
+                    private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("[>] Enter passphrase : "))
+                except ValueError:
+                    sys.exit("[!] [Error] Invalid Password!")
 
         else:
             sys.exit("[!] [Error] Private key was not found! Please check the path and try again.")
