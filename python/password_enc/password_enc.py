@@ -57,9 +57,9 @@ class CryptKeys:
 
             except ValueError:
                 try:
-                    private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("[>] Enter passphrase : "))
+                    private_key = RSA.import_key(open(self.prpriv_key_path).read(), getpass.getpass("[>] Enter passphrase (RSA): "))
                 except ValueError:
-                    sys.exit("[!] [Error] Invalid Password!")
+                    sys.exit("[!] [Error] Invalid Password! Try again.")
 
         else:
             sys.exit("[!] [Error] Private key was not found! Please check the path and try again.")
