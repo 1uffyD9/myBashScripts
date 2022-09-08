@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+from select import select
+from typing import Union
 import pandas as pd
 import json
 import sys
@@ -12,9 +14,18 @@ results_key = "Results"
 # object which contains the vulnerabilities of each category
 vulnerabilities = 'Vulnerabilities'
 
-# trivy content to common vulnerability content
+# trivy content general info
+general_feilds = {
+    # contains image version, os info
+    'general_info': ['ArtifactName', 'Metadata.OS'],
+    'component_type': 'Type',
+    'target': 'Target'
+}
+
+# trivy content specific to vuln
+# you can use the information in general_feilds here
 selective_feilds = {
-    'title': 'Title',
+    'title': ['VulnerabilityID', 'PkgName', 'InstalledVersion'],
     'cve': 'VulnerabilityID',
     'vulnerability_id': '',
     'cwe': 'CweIDs',
@@ -22,11 +33,9 @@ selective_feilds = {
     'description': 'Description',
     'references': 'References',
     'component_name': 'PkgName',
+    'component_type': general_feilds['component_type'],
     'component_version': 'InstalledVersion',
-    'component_type': 'Type',                   # relative to element in Results object
-    'file_path': ['PkgPath', 'Target'],
-    'image_version': 'ArtifactName',            # add these to description
-    'os_version': 'Metadata.OS'                 # add these to description
+    'file_path': ['PkgPath', 'target']
 }
 
 # comments feilds
@@ -36,104 +45,196 @@ comments_feilds = [
 ]
 
 
+class Utils:
+    
+    # ref multiple return types: https://peps.python.org/pep-0483/
+    def get_json_file(self, filename: str) -> Union[dict, None]:
+        """Returns a json"""
+
+        try:
+            with open(filename) as f:
+                return json.load(f)
+        except ValueError as e:
+            return
+
+
+    def pretty_print(self, json_obj: dict) -> None:
+        """Print JSON object with indentations"""
+
+        print(json.dumps(json_obj, indent=4, sort_keys=True))
+
+
+    def find_nested_element(self, element_path: str, json_obj: json) -> Union[dict, None]:
+        """Find the value of a element given by its key path seperated by a period mark"""
+
+        keys = element_path.split('.')
+        current_obj = json_obj
+
+        try:
+            for key in keys:
+                current_obj = current_obj[int(key) if key.isnumeric() else key]
+
+            return current_obj
+        except KeyError as e:
+            return None
+
+
+
 class TrivyParser:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, json_content: dict) -> None:
+        self.utils = Utils()
+        self.json_content = json_content
 
 
-def get_json_file(filename: str) -> dict:
-    try:
-        with open(filename) as f:
-            return json.load(f)
-    except ValueError as e:
-        sys.exit("[!] Invalid JSON format in file : {}".format(filename))
+    def set_trivy_format(self) -> list:
+
+        fin_content = []
+
+        if results_key in self.json_content.keys():
+
+            # iterate through the each component category
+            for vuln_type in self.json_content[results_key]:
+                
+                # setting up general feilds
+                tmp_dict_gen = dict()
+
+                for key in general_feilds.keys():
+                    
+                    if key == 'general_info':
+                        tmp_val = ''
+                        
+                        for item in general_feilds[key]:
+                            tmp_val_i = self.utils.find_nested_element(item, self.json_content)
+
+                            if isinstance(tmp_val_i, dict):
+                                # get the keys and join
+                                tmp_val_i = ':'.join(tmp_val_i.values())
+
+                            tmp_val += f"\n{item}: {tmp_val_i}"
+                            
+                        tmp_dict_gen[key] = tmp_val
+
+                    else:
+                        tmp_val = self.utils.find_nested_element(general_feilds[key], vuln_type)
+                        tmp_dict_gen[key] = tmp_val if not isinstance(tmp_val, type(None)) else ''
+
+                # exclude all categories which does not have vulnerabilities (this may be infomational findings)
+                if vulnerabilities in vuln_type.keys():
+
+                    # iterate through each vulns
+                    for vuln in vuln_type[vulnerabilities]:
+
+                        # set vuln specific selective feilds
+                        tmp_dict_vuln = selective_feilds
+                        for key in selective_feilds.keys():
+
+                            if key == 'title':
+                                tmp_dict = []
+                                for item in selective_feilds[key]:
+                                    tmp_val = self.utils.find_nested_element(item, vuln)
+                                    if not isinstance(tmp_val, type(None)) or not tmp_val:
+                                        tmp_dict.append(tmp_val)
+
+                                tmp_dict_vuln[key] = ' '.join(tmp_dict)
+
+                            
+                            elif key == 'description':
+                                tmp_dict_vuln[key] = self.utils.find_nested_element(selective_feilds[key], vuln)
+                                tmp_dict_vuln[key] += '\n' + self.utils.find_nested_element('general_info', tmp_dict_gen) if tmp_dict_gen['general_info'] else ''
+                            
+                            elif key == 'component_type':
+                                tmp_val = self.utils.find_nested_element(selective_feilds[key], vuln)
+                                if not isinstance(tmp_val, type(None)) or not tmp_val:
+                                    tmp_val = self.utils.find_nested_element(key, tmp_dict_gen)
+
+                                tmp_dict_vuln[key] = tmp_val if tmp_val else ''
+
+                            elif key == 'file_path':
+
+                                tmp_val = ''
+
+                                for item in selective_feilds[key]:
+
+                                    # self.utils.pretty_print(vuln)
+                                    tmp_val = self.utils.find_nested_element(item, vuln)
+
+                                    # if file path not exist in the vulnerability info, take the next value in the list
+                                    tmp_val = self.utils.find_nested_element(item, tmp_dict_gen) if isinstance(tmp_val, type(None)) or tmp_val else ''
+
+                                    # if value found, exist looking for options
+                                    if tmp_val:
+                                        break
+
+                                tmp_dict_vuln[key] = tmp_val if tmp_val else ''
+
+                            else:
+                                # filter out empty items
+                                if selective_feilds[key]:
+                                    tmp_val = self.utils.find_nested_element(selective_feilds[key], vuln)
+
+                                    if isinstance(tmp_val, list):
+                                        tmp_val = '\n'.join(tmp_val)
+
+                                    tmp_dict_vuln[key] = tmp_val
+                else:
+                    raise KeyError(f"{vulnerabilities}")
+
+        else:
+            raise KeyError(f"{results_key}")
+
+        return fin_content
+                
+
+    def main(self) -> None:
+
+        trivy_pd_content = ''
+        dst_file = ''
+        yes = {'yes','y', 'ye', ''}
+        trivy_content = dict()
+
+        input_file = Path(input("[>] Path to ZIP file : ")).expanduser()
+
+        if input_file.is_file(input_file):
+            # get blackduck content
+            trivy_content = self.utils.get_json_file(input_file)
+
+            # setting up the final formatting
+            try: 
+                trivy_content = self.set_trivy_format(trivy_content)
+            except KeyError as e:
+                sys.exit(f"[!] Keys mismatch found ({e})! Please check the trivy configs and retry!")
 
 
-def find_nested_element(element_path: str, json_obj: json):
-    """Find the value of a element given by its key path seperated by a period mark"""
+            pds = pd.json_normalize(trivy_content)
 
-    keys = element_path.split('.')
-    
-    rv = json_obj
+            # adding cols to add analysis comments
+            trivy_pd_content = pds.reindex(columns = pds.columns.tolist() + comments_feilds)
 
-    try:
-        for key in keys:
-            rv = rv[int(key) if key.isnumeric() else key]
+        else:
+            sys.exit("[!] Given report filepath is invalid! Please check the path / file content and try again.")
 
-        return rv
-    except KeyError as e:
-        sys.exit(f"[!] [Error] {e} Key cannot be found! Please check the path ({element_path}) and try again.)")
+        user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
 
-def pretty_print(json_obj: dict) -> None: 
-    print(json.dumps(json_obj, indent=4, sort_keys=True))
+        if user_choice in yes:
+            dst_file = "{}/{}.csv".format(os.getcwd(), input_file.stem)
+            trivy_pd_content.to_csv(r'{}'.format(dst_file), index = None)
+            print("[!] File written to : {}".format(dst_file))
+        else:
+            csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
 
-def set_format(vuln: str):
-    pass
-
-
-
-json_file = Path('./docker.wso2.com_wso2mi-dashboard_1.2.0.18.json').expanduser()
-
-if json_file.is_file():
-    json_content = get_json_file(json_file)
-
-
-image_version = find_nested_element(selective_feilds['image_version'], json_content)
-os_version = ':'.join(find_nested_element(selective_feilds['os_version'], json_content).values())
-
-
-vulns = []
-
-# Results obj contains all the vulnerabilities categorized by type
-for vuln_type in json_content[results_key]:
-
-    if selective_feilds['component_type'] in vuln_type.keys():
-        component_type = vuln_type[selective_feilds['component_type']]
-    else:
-        component_type = ""
-    
-    target = vuln_type[selective_feilds['file_path'][1]]
-    
-    # filter out objects which does not have vuln (having issues like licensing, etc)
-    if vulnerabilities in vuln_type.keys():
-        for vuln in vuln_type[vulnerabilities]:
-        
-            tmp_vuln = dict()
-
-            if selective_feilds['title'] in vuln.keys():
-                tmp_vuln['title'] = vuln[selective_feilds['title']]
+            if csv_dst_dir.is_dir():
+                dst_file = "{}/{}.csv".format(csv_dst_dir, input_file.stem)
+                trivy_pd_content.to_csv(r'{}'.format(dst_file), index = None)
+                print("[!] File written to : {}".format(dst_file))
             else:
-                tmp_vuln['title'] = ''
-
-            # print(vuln[selective_feilds['cve']])
-            tmp_vuln['cve'] = vuln[selective_feilds['cve']]
-            tmp_vuln['vulnerability_id'] = ''
-            tmp_vuln['severity'] = vuln[selective_feilds['severity']].capitalize()
-            tmp_vuln['description'] = vuln[selective_feilds['description']]
-            tmp_vuln['references'] = '\n'.join(vuln[selective_feilds['references']])
-            tmp_vuln['component_name'] = vuln[selective_feilds['component_name']]
-            tmp_vuln['component_version'] = vuln[selective_feilds['component_version']]
-            tmp_vuln['component_type'] = component_type
-
-            if selective_feilds['file_path'][0] in vuln.keys():
-                tmp_vuln['file_path'] = vuln[selective_feilds['file_path'][0]]
-            else:
-                tmp_vuln['file_path'] = target
-
-            tmp_vuln['image_version'] = image_version
-            tmp_vuln['os_version'] = os_version
-
-            # adding vuln elements to final list
-            vulns.append(tmp_vuln)
+                sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
 
 
-dst_file = "{}/{}.csv".format(os.getcwd(), json_file.stem)
 
-pds = pd.json_normalize(vulns)
-# adding cols to add analysis comments
-bd_pd_content = pds.reindex(columns = pds.columns.tolist() + comments_feilds)
-
-
-bd_pd_content.to_csv(r'{}'.format(dst_file), index = None)
-print("[!] File written to : {}".format(dst_file))
+if __name__ == '__main__':
+    try:
+        triv = TrivyParser()
+        triv.main()
+    except KeyboardInterrupt:
+        sys.exit("\n[!] Keyboard Interrupt occured! Exiting.. ")
