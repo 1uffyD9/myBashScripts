@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 from pathlib import Path
 from select import select
 from typing import Union
@@ -7,6 +8,10 @@ import pandas as pd
 import json
 import sys
 import os
+
+yes = {'yes','y', 'ye', ''}
+now = datetime.now()
+dt_string = now.strftime("%d-%m-%Y %H-%M-%S")
 
 # object which contains the results
 results_key = "Results"
@@ -54,7 +59,9 @@ class Utils:
         try:
             with open(filename) as f:
                 return json.load(f)
-        except ValueError as e:
+        except ValueError:
+            return
+        except AttributeError:
             return
 
 
@@ -79,22 +86,42 @@ class Utils:
             return None
 
 
+    def write_csv(slef, pd_content: pd) -> None:
+        
+        user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
+
+        if user_choice in yes:
+            dst_file = "{}/{}.xlsx".format(os.getcwd(), input_file.stem)
+            pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
+            print("[!] File written to : {}".format(dst_file))
+        else:
+            csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
+
+            if csv_dst_dir.is_dir():
+                dst_file = "{}/{}.xlsx".format(csv_dst_dir, input_file.stem)
+                pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
+                print("[!] File written to : {}".format(dst_file))
+            else:
+                sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
+
+
 
 class TrivyParser:
 
-    def __init__(self, json_content: dict) -> None:
+    def __init__(self, json_file: str) -> None:
         self.utils = Utils()
-        self.json_content = json_content
+        self.json_file = json_file
+        self.trivy_content = dict()
 
 
     def set_trivy_format(self) -> list:
 
         fin_content = []
 
-        if results_key in self.json_content.keys():
+        if results_key in self.trivy_content.keys():
 
             # iterate through the each component category
-            for vuln_type in self.json_content[results_key]:
+            for vuln_type in self.trivy_content[results_key]:
                 
                 # setting up general feilds
                 tmp_dict_gen = dict()
@@ -105,7 +132,7 @@ class TrivyParser:
                         tmp_val = ''
                         
                         for item in general_feilds[key]:
-                            tmp_val_i = self.utils.find_nested_element(item, self.json_content)
+                            tmp_val_i = self.utils.find_nested_element(item, self.trivy_content)
 
                             if isinstance(tmp_val_i, dict):
                                 # get the keys and join
@@ -118,37 +145,44 @@ class TrivyParser:
                     else:
                         tmp_val = self.utils.find_nested_element(general_feilds[key], vuln_type)
                         tmp_dict_gen[key] = tmp_val if not isinstance(tmp_val, type(None)) else ''
-
+           
                 # exclude all categories which does not have vulnerabilities (this may be infomational findings)
                 if vulnerabilities in vuln_type.keys():
 
                     # iterate through each vulns
                     for vuln in vuln_type[vulnerabilities]:
-
+                        
                         # set vuln specific selective feilds
-                        tmp_dict_vuln = selective_feilds
+                        tmp_dict_vuln = dict()
                         for key in selective_feilds.keys():
 
                             if key == 'title':
                                 tmp_dict = []
                                 for item in selective_feilds[key]:
                                     tmp_val = self.utils.find_nested_element(item, vuln)
+
                                     if not isinstance(tmp_val, type(None)) or not tmp_val:
                                         tmp_dict.append(tmp_val)
 
                                 tmp_dict_vuln[key] = ' '.join(tmp_dict)
-
                             
                             elif key == 'description':
                                 tmp_dict_vuln[key] = self.utils.find_nested_element(selective_feilds[key], vuln)
                                 tmp_dict_vuln[key] += '\n' + self.utils.find_nested_element('general_info', tmp_dict_gen) if tmp_dict_gen['general_info'] else ''
                             
                             elif key == 'component_type':
-                                tmp_val = self.utils.find_nested_element(selective_feilds[key], vuln)
-                                if not isinstance(tmp_val, type(None)) or not tmp_val:
-                                    tmp_val = self.utils.find_nested_element(key, tmp_dict_gen)
+                                tmp_val = ''
 
-                                tmp_dict_vuln[key] = tmp_val if tmp_val else ''
+                                if selective_feilds[key] in vuln.keys():
+                                    tmp_val = vuln[selective_feilds[key]]
+
+                                elif key in tmp_dict_gen.keys():
+                                    tmp_val = tmp_dict_gen[key]
+                                
+                                else:
+                                    pass
+
+                                tmp_dict_vuln[key] = tmp_val
 
                             elif key == 'file_path':
 
@@ -156,17 +190,22 @@ class TrivyParser:
 
                                 for item in selective_feilds[key]:
 
-                                    # self.utils.pretty_print(vuln)
-                                    tmp_val = self.utils.find_nested_element(item, vuln)
+                                    tmp_val = ''
+                                    # first search the key inside vuln info obj
+                                    if item in vuln.keys():
+                                        tmp_val = vuln[item]
 
                                     # if file path not exist in the vulnerability info, take the next value in the list
-                                    tmp_val = self.utils.find_nested_element(item, tmp_dict_gen) if isinstance(tmp_val, type(None)) or tmp_val else ''
+                                    elif item in tmp_dict_gen.keys():
+                                        tmp_val = tmp_dict_gen[item]
+                                    else:
+                                        pass
 
-                                    # if value found, exist looking for options
+                                    # if value found, exist looking remaining items
                                     if tmp_val:
                                         break
 
-                                tmp_dict_vuln[key] = tmp_val if tmp_val else ''
+                                tmp_dict_vuln[key] = tmp_val
 
                             else:
                                 # filter out empty items
@@ -177,8 +216,14 @@ class TrivyParser:
                                         tmp_val = '\n'.join(tmp_val)
 
                                     tmp_dict_vuln[key] = tmp_val
+                                else:
+                                    tmp_dict_vuln[key] = ''
+
+                        # adding formatted vuln info to the final list
+                        fin_content.append(tmp_dict_vuln)
+
                 else:
-                    raise KeyError(f"{vulnerabilities}")
+                    print("[!] [Error] Non-vulnerability issue category detected. Skipping!")
 
         else:
             raise KeyError(f"{results_key}")
@@ -188,53 +233,38 @@ class TrivyParser:
 
     def main(self) -> None:
 
-        trivy_pd_content = ''
-        dst_file = ''
-        yes = {'yes','y', 'ye', ''}
         trivy_content = dict()
 
-        input_file = Path(input("[>] Path to ZIP file : ")).expanduser()
+        # get the content of the json file
+        self.trivy_content = self.utils.get_json_file(self.json_file)
 
-        if input_file.is_file(input_file):
-            # get blackduck content
-            trivy_content = self.utils.get_json_file(input_file)
+        # check if None type or empty
+        if not isinstance(self.trivy_content, type(None)) or self.trivy_content:
 
-            # setting up the final formatting
             try: 
-                trivy_content = self.set_trivy_format(trivy_content)
+                trivy_content = self.set_trivy_format()
             except KeyError as e:
                 sys.exit(f"[!] Keys mismatch found ({e})! Please check the trivy configs and retry!")
 
-
             pds = pd.json_normalize(trivy_content)
 
-            # adding cols to add analysis comments
-            trivy_pd_content = pds.reindex(columns = pds.columns.tolist() + comments_feilds)
-
+            # writing csv file
+            self.utils.write_csv(pds.reindex(columns = pds.columns.tolist() + comments_feilds))
         else:
-            sys.exit("[!] Given report filepath is invalid! Please check the path / file content and try again.")
-
-        user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
-
-        if user_choice in yes:
-            dst_file = "{}/{}.csv".format(os.getcwd(), input_file.stem)
-            trivy_pd_content.to_csv(r'{}'.format(dst_file), index = None)
-            print("[!] File written to : {}".format(dst_file))
-        else:
-            csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
-
-            if csv_dst_dir.is_dir():
-                dst_file = "{}/{}.csv".format(csv_dst_dir, input_file.stem)
-                trivy_pd_content.to_csv(r'{}'.format(dst_file), index = None)
-                print("[!] File written to : {}".format(dst_file))
-            else:
-                sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
+            sys.exit("[!] [Error] Invalid file content! Please check the file format and try again.")
 
 
 
 if __name__ == '__main__':
-    try:
-        triv = TrivyParser()
-        triv.main()
-    except KeyboardInterrupt:
-        sys.exit("\n[!] Keyboard Interrupt occured! Exiting.. ")
+
+    input_file = Path(input("[>] Path to the Scanner report : ")).expanduser()
+
+    if input_file.is_file():
+        try:
+            triv = TrivyParser(input_file)
+            triv.main()
+            
+        except KeyboardInterrupt:
+            sys.exit("\n[!] Keyboard Interrupt occured! Exiting.. ")
+    else:
+        sys.exit("[!] Given report filepath is invalid! Please check the path / file content and try again.")
