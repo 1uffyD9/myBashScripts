@@ -18,7 +18,7 @@ primary_key = ["Component id", "Version id", "Origin id"]
 source_feilds = ["Archive Context and Path"]
 # bd content to common vulnerability content
 selective_feilds = {
-    'title': ["Vulnerability id", "Component origin id"],
+    'title': ["Vulnerability id", "Component name", "Component origin id"],
     'cve': 'Vulnerability id',
     'vulnerability_id': "Vulnerability id",
     'severity': "Security Risk",
@@ -103,7 +103,7 @@ class VMSParser:
 
                 # setting the title
                 if key == 'title':
-                    tmp_dict[key] = ' : '.join([finding[i] for i in selective_feilds[key]])
+                    tmp_dict[key] = ' '.join([finding[i] for i in selective_feilds[key]])
                 # setting the CVE if exists
                 elif key == 'cve':
                     cve = cve_regex.search(finding[selective_feilds[key]])
