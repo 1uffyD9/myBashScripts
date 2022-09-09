@@ -36,7 +36,7 @@ comments_feilds = [
     "[note] Vulnerability Influence_1", "[note] Resolution_1"
 ]
 
-class VMSParser:
+class BDParser:
 
     def __init__(self) -> None:
         self.blackduck_content = dict()
@@ -169,7 +169,7 @@ class VMSParser:
 
 if __name__ == '__main__':
     try:
-        jp = VMSParser()
+        jp = BDParser()
         jp.main()
     except KeyboardInterrupt:
         sys.exit("\n[!] Keyboard Interrupt occured! Exiting.. ")

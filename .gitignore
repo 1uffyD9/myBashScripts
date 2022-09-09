@@ -6,6 +6,7 @@ __MACOSX/*
 *.env
 *.json
 *.txt
+!requirements.txt
 *.csv
 *.zip
-
+*.xlsx
