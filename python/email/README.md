@@ -1,6 +1,13 @@
 
 
-## Configuration
+## Instructions
+
+* Run the follwoing commands
+```bash
+$ pip install -r requirements.txt
+```
+
+### Configuration
 Create a `.env` file inside the same directory and add the following content to it.
 
 ```bash
