@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from select import select
 from typing import Union
 import pandas as pd
 import json
@@ -127,7 +126,7 @@ class TrivyParser:
                 tmp_dict_gen = dict()
 
                 for key in general_feilds.keys():
-                    
+
                     if key == 'general_info':
                         tmp_val = ''
                         
@@ -175,10 +174,8 @@ class TrivyParser:
 
                                 if selective_feilds[key] in vuln.keys():
                                     tmp_val = vuln[selective_feilds[key]]
-
                                 elif key in tmp_dict_gen.keys():
                                     tmp_val = tmp_dict_gen[key]
-                                
                                 else:
                                     pass
 
@@ -194,7 +191,6 @@ class TrivyParser:
                                     # first search the key inside vuln info obj
                                     if item in vuln.keys():
                                         tmp_val = vuln[item]
-
                                     # if file path not exist in the vulnerability info, take the next value in the list
                                     elif item in tmp_dict_gen.keys():
                                         tmp_val = tmp_dict_gen[item]

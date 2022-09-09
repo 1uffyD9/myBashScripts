@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 from pathlib import Path
 import pandas as pd
 import zipfile
@@ -9,6 +10,9 @@ import sys
 import re
 import io
 import os
+
+now = datetime.now()
+dt_string = now.strftime("%Y-%m-%d %H-%M-%S")
 
 # filename prefix ; note the order of the files
 source_files_prefix = ['security', 'source']
@@ -97,7 +101,7 @@ class BDParser:
 
         for finding in vuln_list:
             tmp_dict = dict()
-            for key, value in selective_feilds.items():
+            for key in selective_feilds.keys():
 
                 cve_regex = re.compile(r"CVE-\d{4}-\d{4,9}", re.IGNORECASE)
 
@@ -114,6 +118,12 @@ class BDParser:
                 # setting the component name without version
                 elif key == 'component_name':
                     tmp_dict[key] = finding[selective_feilds[key]].rsplit(':', 1)[0]
+                # convert file_path array to readable string
+                elif key == 'file_path':
+                    if isinstance(finding[selective_feilds[key]], list):
+                        tmp_dict[key] = '\n'.join(finding[selective_feilds[key]])
+                    else:
+                        tmp_dict[key] = finding[selective_feilds[key]]
                 else:
                     tmp_dict[key] = finding[selective_feilds[key]]
             
@@ -153,15 +163,15 @@ class BDParser:
         user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
 
         if user_choice in yes:
-            dst_file = "{}/{}.csv".format(os.getcwd(), zip_file.stem)
-            bd_pd_content.to_csv(r'{}'.format(dst_file), index = None)
+            dst_file = "{}/{}.xlsx".format(os.getcwd(), zip_file.stem)
+            bd_pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
             print("[!] File written to : {}".format(dst_file))
         else:
             csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
 
             if csv_dst_dir.is_dir():
-                dst_file = "{}/{}.csv".format(csv_dst_dir, zip_file.stem)
-                bd_pd_content.to_csv(r'{}'.format(dst_file), index = None)
+                dst_file = "{}/{}.xlsx".format(csv_dst_dir, zip_file.stem)
+                bd_pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
                 print("[!] File written to : {}".format(dst_file))
             else:
                 sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
