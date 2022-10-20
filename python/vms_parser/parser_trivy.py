@@ -8,6 +8,22 @@ import json
 import sys
 import os
 
+C='\033'
+RED=f"{C}[31m"
+GREEN=f"{C}[32m"
+YELW=f"{C}[33m"
+BLUE=f"{C}[34m"
+MGNT=f"{C}[35m" #Magenta
+LG=f"{C}[37m" #LightGray
+DG=f"{C}[90m" #DarkGray
+NC=f"{C}[0m"
+BOLD=f"{C}[1m"
+UNDERLINED=f"{C}[5m"
+ITALIC=f"{C}[3m"
+
+# enable debug to find additional info
+debug = True
+
 yes = {'yes','y', 'ye', ''}
 now = datetime.now()
 dt_string = now.strftime("%d-%m-%Y %H-%M-%S")
@@ -70,6 +86,38 @@ class Utils:
         print(json.dumps(json_obj, indent=4, sort_keys=True))
 
 
+    def print_log(self, content: str = '', code: int = 0, end: str = '\n', exit: bool = False, prefix: str = '') -> None:
+        """Print console logs based on the given code\n
+            0 - Info (default)\n
+            1 - Success\n
+            2 - Error\n
+            3 - Fail\n
+            4 - Event
+            5 - Debug
+        """
+        fin_content = prefix if prefix else ''
+
+        if int(code) == 1:
+            # success 
+            fin_content += f"{GREEN}{BOLD}[+]{NC} {content} {NC}"
+        elif int(code) == 2:
+            # error 
+            fin_content += f"{RED}{BOLD}[!]{NC} {content} {NC}"
+        elif int(code) == 3:
+            # fail 
+            fin_content += f"{YELW}{BOLD}[-]{NC} {content} {NC}"
+        elif int(code) == 4:
+            # event 
+            fin_content += f"{BLUE}{BOLD}[*]{NC} {content} {NC}"
+        elif int(code) == 5:
+            # debug 
+            fin_content += f"{MGNT}{BOLD}[%]{NC} {content} {NC}"
+        else:
+            fin_content += f"{DG}{BOLD}[*]{NC} {content} {NC}"
+
+        sys.exit(f'{fin_content}{end}') if exit else print(fin_content, end=end)
+
+
     def find_nested_element(self, element_path: str, json_obj: json) -> Union[dict, None]:
         """Find the value of a element given by its key path seperated by a period mark"""
 
@@ -85,23 +133,23 @@ class Utils:
             return None
 
 
-    def write_csv(slef, pd_content: pd) -> None:
+    def write_csv(self, pd_content: pd, file_name: str) -> None:
         
-        user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
+        user_choice = input(f"{YELW}[>]{NC} Do you want to write to current working directory [y/Y] ?").lower()
 
         if user_choice in yes:
-            dst_file = "{}/{}.xlsx".format(os.getcwd(), input_file.stem)
+            dst_file = "{}/{}.xlsx".format(os.getcwd(), file_name)
             pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
-            print("[!] File written to : {}".format(dst_file))
+            self.print_log("File written to : {}".format(dst_file), code=4)
         else:
-            csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
+            csv_dst_dir = Path(input(f"{YELW}[>]{NC} Enter destination direcotry : ")).expanduser()
 
             if csv_dst_dir.is_dir():
-                dst_file = "{}/{}.xlsx".format(csv_dst_dir, input_file.stem)
+                dst_file = "{}/{}.xlsx".format(csv_dst_dir, file_name)
                 pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
-                print("[!] File written to : {}".format(dst_file))
+                self.print_log("File written to : {}".format(dst_file), code=4)
             else:
-                sys.exit("[!] Directory does not exist : {}".format(csv_dst_dir))
+                self.print_log("Directory does not exist : {}".format(csv_dst_dir), code=2, exit=True)
 
 
 
@@ -150,6 +198,9 @@ class TrivyParser:
 
                     # iterate through each vulns
                     for vuln in vuln_type[vulnerabilities]:
+
+                        if debug and utils.find_nested_element('name', vuln):
+                            utils.print_log(vuln['name'], code=5)  
                         
                         # set vuln specific selective feilds
                         tmp_dict_vuln = dict()
@@ -219,7 +270,7 @@ class TrivyParser:
                         fin_content.append(tmp_dict_vuln)
 
                 else:
-                    print("[!] [Error] Non-vulnerability issue category detected. Skipping!")
+                    utils.print_log("Non-vulnerability issue category detected. Skipping!", code=4)
 
         else:
             raise KeyError(f"{results_key}")
@@ -240,27 +291,28 @@ class TrivyParser:
             try: 
                 trivy_content = self.set_trivy_format()
             except KeyError as e:
-                sys.exit(f"[!] Keys mismatch found ({e})! Please check the trivy configs and retry!")
+                utils.print_log(f"Keys mismatch found ({e})! Please check the aqua configs and retry!", code=2, exit=True)
 
             pds = pd.json_normalize(trivy_content)
 
             # writing csv file
-            self.utils.write_csv(pds.reindex(columns = pds.columns.tolist() + comments_feilds))
+            self.utils.write_csv(pds.reindex(columns = pds.columns.tolist() + comments_feilds), self.json_file.stem)
         else:
-            sys.exit("[!] [Error] Invalid file content! Please check the file format and try again.")
+            utils.print_log("[Error] Invalid file content! Please check the file format and try again.", code=2, exit=True)
 
 
 
 if __name__ == '__main__':
 
-    input_file = Path(input("[>] Path to the Scanner report : ")).expanduser()
+    utils = Utils()
 
-    if input_file.is_file():
-        try:
+    try:
+        input_file = Path(input(f"{YELW}[>]{NC} Path to the Scanner report : ").strip()).expanduser()
+        if input_file.is_file():
             triv = TrivyParser(input_file)
             triv.main()
-            
-        except KeyboardInterrupt:
-            sys.exit("\n[!] Keyboard Interrupt occured! Exiting.. ")
-    else:
-        sys.exit("[!] Given report filepath is invalid! Please check the path / file content and try again.")
+        else:
+            utils.print_log("Given report filepath is invalid! Please check the path / file content and try again.", code=3, exit=True)
+        
+    except KeyboardInterrupt:
+        utils.print_log("Keyboard Interrupt occured! Exiting.. ", code=2, exit=True, pref='\n')

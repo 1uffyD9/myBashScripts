@@ -22,6 +22,9 @@ BOLD=f"{C}[1m"
 UNDERLINED=f"{C}[5m"
 ITALIC=f"{C}[3m"
 
+# enable debug to find additional info
+debug = False
+
 yes = {'yes','y', 'ye', ''}
 now = datetime.now()
 dt_string = now.strftime("%d-%m-%Y %H-%M-%S")
@@ -85,33 +88,34 @@ class Utils:
         print(json.dumps(json_obj, indent=4, sort_keys=True))
 
 
-    def print_log(self, content: str = '', code: int = 0, end: str = '\n', exit: bool = False) -> None:
+    def print_log(self, content: str = '', code: int = 0, end: str = '\n', exit: bool = False, pref: str = '') -> None:
         """Print console logs based on the given code\n
             0 - Info (default)\n
             1 - Success\n
             2 - Error\n
             3 - Fail\n
             4 - Event
+            5 - Debug
         """
-        fin_content = ""
+        fin_content = pref if pref else ''
 
         if int(code) == 1:
             # success 
-            fin_content = f"{GREEN}{BOLD}[+]{NC} {content} {NC}"
+            fin_content += f"{GREEN}{BOLD}[+]{NC} {content} {NC}"
         elif int(code) == 2:
             # error 
-            fin_content = f"{RED}{BOLD}[!]{NC} {content} {NC}"
+            fin_content += f"{RED}{BOLD}[!]{NC} {content} {NC}"
         elif int(code) == 3:
             # fail 
-            fin_content = f"{YELW}{BOLD}[-]{NC} {content} {NC}"
+            fin_content += f"{YELW}{BOLD}[-]{NC} {content} {NC}"
         elif int(code) == 4:
             # event 
-            fin_content = f"{BLUE}{BOLD}[*]{NC} {content} {NC}"
+            fin_content += f"{BLUE}{BOLD}[*]{NC} {content} {NC}"
         elif int(code) == 5:
             # debug 
-            fin_content = f"{MGNT}{BOLD}[%]{NC} {content} {NC}"
+            fin_content += f"{MGNT}{BOLD}[%]{NC} {content} {NC}"
         else:
-            fin_content = f"{DG}{BOLD}[*]{NC} {content} {NC}"
+            fin_content += f"{DG}{BOLD}[*]{NC} {content} {NC}"
 
         sys.exit(f'{fin_content}{end}') if exit else print(fin_content, end=end)
 
@@ -133,14 +137,14 @@ class Utils:
 
     def write_csv(self, pd_content: pd, file_name: str) -> None:
         
-        user_choice = input("[>] Do you want to write to current working directory [y/Y] ?").lower()
+        user_choice = input(f"{YELW}[>]{NC} Do you want to write to current working directory [y/Y] ?").lower()
 
         if user_choice in yes:
             dst_file = "{}/{}.xlsx".format(os.getcwd(), file_name)
             pd_content.to_excel(r'{}'.format(dst_file), index = None, sheet_name=dt_string)
             self.print_log("File written to : {}".format(dst_file), code=4)
         else:
-            csv_dst_dir = Path(input("[>] Enter destination direcotry : ")).expanduser()
+            csv_dst_dir = Path(input(f"{YELW}[>]{NC} Enter destination direcotry : ")).expanduser()
 
             if csv_dst_dir.is_dir():
                 dst_file = "{}/{}.xlsx".format(csv_dst_dir, file_name)
@@ -222,37 +226,45 @@ class AquaParser:
                 if vulnerabilities in component.keys():
 
                     for vuln in component[vulnerabilities]:
-                        print(vuln['name'])
+                        if debug and utils.find_nested_element('name', vuln):
+                            utils.print_log(vuln['name'], code=5)  
                         
                         # set vuln specific selective feilds
                         tmp_dict_vuln = dict()
                         for key in selective_feilds.keys():
                             record = ''
-                      
-                            if key == 'title':
-                                tmp_list = list()
-                        
-                                for item in selective_feilds[key]:
-                                    tmp_val = ''
-                                    if item in vuln:
-                                        # item exist as a direct element
-                                        tmp_val = vuln[item]
-                                    else:
-                                        # item not exist as a direct element
 
-                                        tmp_val = utils.find_nested_element(item, vuln)
-                                        # if not, find in general info
-                                        tmp_val = tmp_val if not isinstance(tmp_val, type(None)) else tmp_dict_gen[item]
+                            # ditch keys which don't have any values mapped
+                            if selective_feilds[key]:
+                                if key == 'title':
+                                    tmp_list = list()
+                            
+                                    for item in selective_feilds[key]:
+                                        tmp_val = ''
+                                        if item in vuln:
+                                            # item exist as a direct element
+                                            tmp_val = vuln[item]
+                                        else:
+                                            # item not exist as a direct element
 
-                                    
-                                    if not isinstance(tmp_val, type(None)) or not tmp_val:
-                                        tmp_list.append(tmp_val)
+                                            tmp_val = utils.find_nested_element(item, vuln)
+                                            # if not, find in general info
+                                            tmp_val = tmp_val if not isinstance(tmp_val, type(None)) else tmp_dict_gen[item]
 
-                                record = ' '.join(tmp_list)                                
+                                        
+                                        if not isinstance(tmp_val, type(None)) or not tmp_val:
+                                            tmp_list.append(tmp_val)
 
-                            else:
-                                # ditch keys which don't have any values mapped
-                                if selective_feilds[key]:
+                                    record = ' '.join(tmp_list)
+
+                                elif key == 'description':
+                                    # item exist as a direct element
+                                    record = vuln[selective_feilds[key]] if selective_feilds[key] in vuln.keys() else ''
+                                        
+                                    # additional info
+                                    record += '\n' + utils.find_nested_element('general_info', tmp_dict_gen) if tmp_dict_gen['general_info'] else ''
+
+                                else:
                                     if selective_feilds[key] in vuln.keys():
                                         # item exist as a direct element
                                         record = vuln[selective_feilds[key]]
@@ -279,9 +291,6 @@ class AquaParser:
 
     def main(self) -> None:
 
-        
-        utils = Utils()
-
         # get the content of the json file
         self.aqua_content = utils.get_json_file(self.json_file)
 
@@ -290,7 +299,6 @@ class AquaParser:
 
             try: 
                 aqua_content = self.set_aqua_format()
-                utils.pretty_print(aqua_content)
             except KeyError as e:
                 utils.print_log(f"Keys mismatch found ({e})! Please check the aqua configs and retry!", code=2, exit=True)
 
@@ -306,15 +314,14 @@ class AquaParser:
 if __name__ == '__main__':
 
     utils = Utils()
-    input_file = Path(input("[>] Path to the Scanner report : ")).expanduser()
 
-    if input_file.is_file():
-        try:
+    try:
+        input_file = Path(input(f"{YELW}[>]{NC} Path to the Scanner report : ").strip()).expanduser()
+        if input_file.is_file():
             aqua = AquaParser(input_file)
             aqua.main()
-            
-        except KeyboardInterrupt:
-            utils.print_log("Keyboard Interrupt occured! Exiting.. ", code=2, exit=True)
-    else:
-        utils.print_log("Given report filepath is invalid! Please check the path / file content and try again.", code=3, exit=True)
-
+        else:
+            utils.print_log("Given report filepath is invalid! Please check the path / file content and try again.", code=3, exit=True)
+        
+    except KeyboardInterrupt:
+        utils.print_log("Keyboard Interrupt occured! Exiting.. ", code=2, exit=True, pref='\n')
