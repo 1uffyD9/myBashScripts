@@ -2,14 +2,16 @@
 
 import sys
 
+# https://gist.github.com/vratiu/9780109#file-bash_aliases
 C='\033'
 RED=f"{C}[31m"
 GREEN=f"{C}[32m"
 YELW=f"{C}[33m"
 BLUE=f"{C}[34m"
-MGNT=f"{C}[36m" #Magenta
-LG=f"{C}[37m" #LightGray
-DG=f"{C}[90m" #DarkGray
+CYN=f"{C}[36m"  # Cyan
+MGNT=f"{C}[35m" # Magenta
+LG=f"{C}[37m"   # LightGray
+DG=f"{C}[90m"   # DarkGray
 NC=f"{C}[0m"
 BOLD=f"{C}[1m"
 UNDERLINED=f"{C}[5m"
