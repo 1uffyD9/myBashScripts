@@ -28,5 +28,8 @@ sudo tar xzf "/tmp/$TOMCAT_ARC" -C "$TOMCAT_HOME" --strip-components=1
 # change default permissions
 sudo chown -R tomcat:tomcat $TOMCAT_HOME/{webapps,work,temp,logs}/
 
+# Give executable permissions
+sudo sh -c "chmod u+x $TOMCAT_HOME/bin/*.sh"
+
 # Follow the guideline : https://www.digitalocean.com/community/tutorials/how-to-install-apache-tomcat-10-on-ubuntu-20-04
 
