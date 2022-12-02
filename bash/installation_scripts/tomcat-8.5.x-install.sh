@@ -26,7 +26,7 @@ echo "[*] Extracting tomcat"
 sudo tar xzf "/tmp/$TOMCAT_ARC" -C "$TOMCAT_HOME" --strip-components=1
 
 # change default permissions
-sudo chown -R tomcat:tomcat $TOMCAT_HOME/{webapps,work,temp,logs}/
+sudo chown -R tomcat:tomcat $TOMCAT_HOME
 
 # Give executable permissions
 sudo sh -c "chmod u+x $TOMCAT_HOME/bin/*.sh"
