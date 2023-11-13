@@ -5,6 +5,13 @@ from pathlib import Path
 import os, sys
 import json
 
+
+COMMENTS_FEILDS = [
+    "[note] wso2-resolution", "[note] usecase",
+    "[note] justification",	"[note] resolution"
+]
+
+
 class JFrogParser:
     def get_json_file(self, filename: str) -> dict:
         try:
@@ -136,16 +143,52 @@ class JFrogParser:
         # remove special characters and return
         return pd_content.replace('(\\r|\\n)','',regex=True)
 
+    
+    def group_by_component_f3(self, content: json) -> pd.DataFrame:
+
+        pd_content = pd.json_normalize(content, record_path=['component_versions', 'more_details', 'cves'],
+            meta=[
+                ['component_versions', 'id'], ['component_versions', 'more_details', 'cves'], 'severity',
+                'source_comp_id', 'summary', 'component_physical_paths', 'pkg_type'
+            ],
+            errors="ignore").drop("component_versions.more_details.cves", axis='columns').\
+            rename(index=str, 
+                columns={
+                    'component_versions.id': 'vulnerability_id',
+                    'source_comp_id': 'component_name',
+                    'summary': 'description',
+                    'component_physical_paths': 'file_path',
+                    'pkg_type': 'component_type'
+                })
+                
+        # Convert file path list to string
+        pd_content['file_path'] = pd_content['file_path'].apply(lambda x: ', '.join(map(str, x)))
+
+        # re-arranging the columns
+        pd_content = pd_content.loc[:, [
+            'cve', 'vulnerability_id', 'severity', 'description', 'component_name', 'component_type','file_path', 'cvss_v2', 'cvss_v3'
+        ]]
+
+        # adding cols to add analysis comments
+        pd_content = pd_content.reindex(columns = pd_content.columns.tolist() + COMMENTS_FEILDS)
+
+        # remove special characters and return
+        return pd_content.replace('(\\r|\\n)','',regex=True)
 
     def main(self) -> None:
         json_content = ''
         dst_file = ''
         yes = {'yes','y', 'ye', ''}
 
-        json_file = Path(input("[>] Path to JSON file : ").strip()).expanduser()
+        
+        # json_file = Path(input("[>] Path to JSON file : ").strip()).expanduser()
+        json_file = Path("~/Downloads/Docker_docker.wso2.com-wso2am-3.2.0.314_Security_Export.json".strip()).expanduser()
 
         if json_file.is_file():
             json_content = self.get_json_file(json_file)
+
+
+            # sys.exit(json_content.keys())
 
             # normalize the nested JSON objects 
             # https://pythonmana.com/2021/08/20210809143233849o.html
@@ -153,8 +196,11 @@ class JFrogParser:
                 json_content = self.group_by_cves_components(json_content)
             else:
                 # list contains vulnerabilities in the format of a dict
+                json_content = json_content['data']
                 if 'component_id' in json_content[0].keys():
                     json_content = self.group_by_component_f1(json_content)
+                if 'source_id' in json_content[0].keys():
+                    json_content = self.group_by_component_f3(json_content)
                 elif "IMPACTED DEPENDENCY" in json_content[0].keys():
                     json_content = self.group_by_component_f2(json_content)
                 else:
