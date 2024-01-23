@@ -26,7 +26,7 @@ debug = True
 
 yes = {'yes','y', 'ye', ''}
 now = datetime.now()
-dt_string = now.strftime("%d-%m-%Y %H-%M-%S")
+dt_string = 'vulnerabilities' # now.strftime("%d-%m-%Y %H-%M-%S")
 
 # object which contains the results
 results_key = "Results"
@@ -60,8 +60,8 @@ selective_feilds = {
 
 # comments feilds
 comments_feilds = [
-    "[note] WSO2 Resolution_1", "[note] Use Case_1", 
-    "[note] Vulnerability Influence_1", "[note] Resolution_1"
+    "[note] wso2-resolution", "[note] usecase",
+    "[note] justification",	"[note] resolution"
 ]
 
 
