@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.10
 
 from ctypes import util
 from datetime import datetime

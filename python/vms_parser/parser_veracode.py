@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.10
 
 from defusedxml import ElementTree
 from datetime import datetime

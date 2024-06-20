@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.10
 
 import pandas as pd
 from pathlib import Path
@@ -148,14 +148,14 @@ class JFrogParser:
 
         pd_content = pd.json_normalize(content, record_path=['component_versions', 'more_details', 'cves'],
             meta=[
-                ['component_versions', 'id'], ['component_versions', 'more_details', 'cves'], 'severity',
+                'id', ['component_versions', 'id'], ['component_versions', 'more_details', 'cves'], 'severity',
                 'source_comp_id', 'summary', 'component_physical_paths', 'pkg_type'
             ],
             errors="ignore").drop("component_versions.more_details.cves", axis='columns').\
             rename(index=str, 
                 columns={
-                    'component_versions.id': 'vulnerability_id',
-                    'source_comp_id': 'component_name',
+                    'id': 'vulnerability_id',
+                    'component_versions.id': 'component_name',
                     'summary': 'description',
                     'component_physical_paths': 'file_path',
                     'pkg_type': 'component_type'
@@ -166,7 +166,7 @@ class JFrogParser:
 
         # re-arranging the columns
         pd_content = pd_content.loc[:, [
-            'cve', 'vulnerability_id', 'severity', 'description', 'component_name', 'component_type','file_path', 'cvss_v2', 'cvss_v3'
+            'cve', 'vulnerability_id', 'severity', 'description', 'component_name', 'source_comp_id', 'component_type','file_path', 'cvss_v2', 'cvss_v3'
         ]]
 
         # adding cols to add analysis comments
@@ -181,8 +181,8 @@ class JFrogParser:
         yes = {'yes','y', 'ye', ''}
 
         
-        # json_file = Path(input("[>] Path to JSON file : ").strip()).expanduser()
-        json_file = Path("~/Downloads/Docker_docker.wso2.com-wso2am-3.2.0.314_Security_Export.json".strip()).expanduser()
+        json_file = Path(input("[>] Path to JSON file : ").strip()).expanduser()
+        # json_file = Path("~/Downloads/Docker_docker.wso2.com-wso2am-3.2.0.314_Security_Export.json".strip()).expanduser()
 
         if json_file.is_file():
             json_content = self.get_json_file(json_file)
