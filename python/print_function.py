@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 import sys
 
 # https://gist.github.com/vratiu/9780109#file-bash_aliases
@@ -19,34 +20,57 @@ ITALIC=f"{C}[3m"
 
 
 def print_log(content: str = '', code: int = 0, end: str = '\n', exit: bool = False, prefix: str = '') -> None:
-    """Print console logs based on the given code\n
-        0 - Info (default)\n
-        1 - Success\n
-        2 - Error\n
-        3 - Fail\n
-        4 - Event\n
-        5 - Debug
     """
-    fin_content = prefix if prefix else ''
-    if int(code) == 1:
-        # success 
-        fin_content += f"{GREEN}{BOLD}[+]{NC} {content} {NC}"
-    elif int(code) == 2:
-        # error 
-        fin_content += f"{RED}{BOLD}[!]{NC} {content} {NC}"
-    elif int(code) == 3:
-        # fail 
-        fin_content += f"{RED}[-]{NC} {content} {NC}"
-    elif int(code) == 4:
-        # event 
-        fin_content += f"{BLUE}{BOLD}[*]{NC} {content} {NC}"
-    elif int(code) == 5:
-        # debug 
-        fin_content += f"{YELW}{BOLD}[%]{NC} {content} {NC}"
-    else:
-        fin_content += f"{DG}{BOLD}[*]{NC} {content} {NC}"
+    Prints console logs with formatted messages based on the given code.
     
-    sys.exit(f'{fin_content}') if exit else print(fin_content, end=end)
+    Log Codes:
+        0 - Info (default): General informational messages.
+        1 - Success: Indicates successful execution.
+        2 - Error: Indicates an error occurred.
+        3 - Fail: Indicates a failed process or task.
+        4 - Event: Represents significant events in the workflow.
+        5 - Debug: Debugging messages for development.
+
+    :param content: The message to log.
+    :param code: The type of log message (0: Info, 1: Success, 2: Error, 3: Fail, 4: Event, 5: Debug).
+    :param end: The character to end the print statement with (default is newline).
+    :param exit: If True, the program will exit after logging (default is False).
+    :param prefix: An optional prefix to prepend to the log message.
+    :return: None
+    """
+    
+    # Prepare the log message with optional prefix
+    fin_content = prefix if prefix else ''
+
+    # Get current datetime formatted as 'YYYY-MM-DD HH:MM:SS AM/PM'
+    now = datetime.now()
+    current_datetime = now.strftime("%Y-%m-%d %I:%M:%S %p")
+
+    # Define log format based on the code provided
+    if int(code) == 1:
+        # Success
+        fin_content += f"{GREEN}{BOLD}[+]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+    elif int(code) == 2:
+        # Error
+        fin_content += f"{RED}{BOLD}[!]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+    elif int(code) == 3:
+        # Fail
+        fin_content += f"{RED}[-]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+    elif int(code) == 4:
+        # Event
+        fin_content += f"{BLUE}{BOLD}[*]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+    elif int(code) == 5:
+        # Debug
+        fin_content += f"{YELW}{BOLD}[%]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+    else:
+        # Info (default)
+        fin_content += f"{DG}{BOLD}[*]{NC} [ {DG}{current_datetime}{NC} ] {content} {NC}"
+
+    # Exit the program if 'exit' is True, otherwise print the log
+    if exit:
+        sys.exit(f'{fin_content}')
+    else:
+        print(fin_content, end=end)
 
 
 print_log("This reprecents an Informational massage")
